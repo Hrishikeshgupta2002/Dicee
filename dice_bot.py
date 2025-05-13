@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""
+Telegram Dice Roll Bot - Webhook-based for Render deployment.
+"""
+
 import os
 import sys
 import logging
@@ -10,8 +14,8 @@ from typing import Optional
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import (
-    Application,
     ApplicationBuilder,
+    Application,
     CommandHandler,
     ContextTypes,
     CallbackContext,
@@ -21,12 +25,12 @@ from telegram.ext import (
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 DEPLOYMENT_MODE = os.getenv("DEPLOYMENT_MODE", "webhook")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 PORT = int(os.getenv("PORT", 10000))
 
 # Logging setup
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
@@ -37,7 +41,7 @@ class DiceBot:
             logger.error("TELEGRAM_BOT_TOKEN not set!")
             sys.exit(1)
         self.start_time = datetime.now()
-        self.app = ApplicationBuilder().token(TOKEN).build()
+        self.app: Application = ApplicationBuilder().token(TOKEN).build()
         self._setup_handlers()
 
     def _setup_handlers(self):
@@ -83,13 +87,13 @@ class DiceBot:
     async def error_handler(self, update: Optional[Update], context: CallbackContext):
         logger.error(f"Error: {context.error}")
         if update and update.effective_message:
-            await update.effective_message.reply_text("Something went wrong!")
+            await update.effective_message.reply_text("⚠️ Something went wrong.")
 
     async def run_webhook(self):
         if not WEBHOOK_URL:
             logger.error("WEBHOOK_URL not set!")
             sys.exit(1)
-        logger.info(f"Running in webhook mode at {WEBHOOK_URL}:{PORT}")
+        logger.info(f"Running in webhook mode at {WEBHOOK_URL}")
         await self.app.bot.set_webhook(WEBHOOK_URL)
         self.app.run_webhook(
             listen="0.0.0.0",
