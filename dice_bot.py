@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Telegram Dice Roll Bot - Webhook-based for Render deployment.
-"""
-
 import os
 import sys
 import logging
@@ -12,6 +8,7 @@ import asyncio
 from datetime import datetime
 from typing import Optional
 from dotenv import load_dotenv
+from aiohttp import web
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -93,13 +90,24 @@ class DiceBot:
         if not WEBHOOK_URL:
             logger.error("WEBHOOK_URL not set!")
             sys.exit(1)
+
+        # Create a simple health check route for '/'
+        async def handle_root(request):
+            return web.Response(text="✅ Dice Bot is running")
+
         logger.info(f"Running in webhook mode at {WEBHOOK_URL}")
         await self.app.bot.set_webhook(WEBHOOK_URL)
-        self.app.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            webhook_url=WEBHOOK_URL
-        )
+
+        # aiohttp web server
+        runner = web.AppRunner(self.app.web_app)
+        await runner.setup()
+        site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
+        self.app.web_app.router.add_get("/", handle_root)  # <-- add root route
+        await site.start()
+
+        # Keep the bot alive
+        while True:
+            await asyncio.sleep(3600)
 
     def run(self):
         if DEPLOYMENT_MODE == "webhook":
