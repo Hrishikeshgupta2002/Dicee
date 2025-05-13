@@ -7,7 +7,6 @@ import asyncio
 from datetime import datetime
 from typing import Optional
 from dotenv import load_dotenv
-from aiohttp import web
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -21,7 +20,7 @@ from telegram.ext import (
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 DEPLOYMENT_MODE = os.getenv("DEPLOYMENT_MODE", "webhook")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()  # 🛠️ fix for newline
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()  # 🛠️ fixed here
 PORT = int(os.getenv("PORT", 10000))
 
 # Logging setup
@@ -97,23 +96,12 @@ class DiceBot:
         logger.info(f"Running in webhook mode at {WEBHOOK_URL}")
         await self.app.bot.set_webhook(WEBHOOK_URL)
 
-        # Create aiohttp app from PTB
-        aiohttp_app = self.app.create_app()
-
-        # Add health check route
-        async def handle_root(request):
-            return web.Response(text="✅ Dice Bot is running")
-
-        aiohttp_app.router.add_get("/", handle_root)
-
-        # Start web server
-        runner = web.AppRunner(aiohttp_app)
-        await runner.setup()
-        site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
-        await site.start()
-
-        while True:
-            await asyncio.sleep(3600)
+        # Start the built-in webhook server (correct for PTB 20.8)
+        self.app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            webhook_url=WEBHOOK_URL
+        )
 
     def run(self):
         if DEPLOYMENT_MODE == "webhook":
