@@ -9,6 +9,7 @@ import sys
 import logging
 import signal
 import random
+import asyncio
 from typing import Optional
 from datetime import datetime
 from dotenv import load_dotenv
@@ -104,21 +105,42 @@ class DiceBot:
                 "😔 Sorry, something went wrong. Please try again later."
             )
             
+    async def cleanup(self) -> None:
+        """Clean up before shutdown."""
+        try:
+            # Remove webhook
+            await self.application.bot.delete_webhook()
+            # Stop the application
+            await self.application.stop()
+            # Shutdown the application
+            await self.application.shutdown()
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
+            
     def run(self) -> None:
         """Run the bot with graceful shutdown handling."""
-        def signal_handler(signum, frame):
+        async def shutdown(signum, frame):
             """Handle shutdown signals gracefully."""
             logger.info("Received shutdown signal. Cleaning up...")
-            self.application.stop()
+            await self.cleanup()
             sys.exit(0)
             
         # Register signal handlers
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
+        loop = asyncio.get_event_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(
+                sig,
+                lambda s=sig: asyncio.create_task(shutdown(s, None))
+            )
         
-        # Start the bot
-        logger.info("Starting bot...")
-        self.application.run_polling(allowed_updates=Update.ALL_TYPES)
+        try:
+            # Start the bot
+            logger.info("Starting bot...")
+            self.application.run_polling(allowed_updates=Update.ALL_TYPES)
+        except Exception as e:
+            logger.critical(f"Critical error: {e}")
+            asyncio.run(self.cleanup())
+            sys.exit(1)
 
 def main() -> None:
     """Main entry point of the application."""
