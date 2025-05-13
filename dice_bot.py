@@ -91,18 +91,22 @@ class DiceBot:
             logger.error("WEBHOOK_URL not set!")
             sys.exit(1)
 
-        # Create a simple health check route for '/'
-        async def handle_root(request):
-            return web.Response(text="✅ Dice Bot is running")
+        # 🐛 Debug output for the webhook URL
+        print(f"DEBUG: WEBHOOK_URL = '{WEBHOOK_URL}'")
+        print(f"DEBUG length = {len(WEBHOOK_URL)}")
 
         logger.info(f"Running in webhook mode at {WEBHOOK_URL}")
         await self.app.bot.set_webhook(WEBHOOK_URL)
 
-        # aiohttp web server
+        # Create simple root response so Telegram can validate
+        async def handle_root(request):
+            return web.Response(text="✅ Dice Bot is running")
+
+        # aiohttp server
         runner = web.AppRunner(self.app.web_app)
         await runner.setup()
         site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
-        self.app.web_app.router.add_get("/", handle_root)  # <-- add root route
+        self.app.web_app.router.add_get("/", handle_root)
         await site.start()
 
         # Keep the bot alive
