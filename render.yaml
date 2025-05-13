@@ -1,15 +1,15 @@
 services:
   - type: web
-    name: dice-bot
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python dice_bot.py
+    name: telegram-dice-bot
+    runtime: python
+    buildCommand: ""
+    startCommand: ./start.sh
     envVars:
       - key: TELEGRAM_BOT_TOKEN
-        sync: false
+        value:  7903716016:AAGkz66p120DpM0z_zMuAKwtIpvuMubZRI4
       - key: DEPLOYMENT_MODE
         value: webhook
+      - key: WEBHOOK_URL
+        value: https://dicee-sl0r.onrender.com
       - key: PORT
         value: 10000
-      - key: WEBHOOK_URL
-        sync: false 
