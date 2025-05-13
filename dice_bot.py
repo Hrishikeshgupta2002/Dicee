@@ -3,7 +3,6 @@ import os
 import sys
 import logging
 import random
-import asyncio
 from datetime import datetime
 from typing import Optional
 from dotenv import load_dotenv
@@ -20,7 +19,7 @@ from telegram.ext import (
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 DEPLOYMENT_MODE = os.getenv("DEPLOYMENT_MODE", "webhook")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()  # 🛠️ fixed here
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
 PORT = int(os.getenv("PORT", 10000))
 
 # Logging setup
@@ -84,7 +83,7 @@ class DiceBot:
         if update and update.effective_message:
             await update.effective_message.reply_text("⚠️ Something went wrong.")
 
-    async def run_webhook(self):
+    def run_webhook(self):
         if not WEBHOOK_URL:
             logger.error("WEBHOOK_URL not set!")
             sys.exit(1)
@@ -94,9 +93,6 @@ class DiceBot:
         print(f"DEBUG length = {len(WEBHOOK_URL)}")
 
         logger.info(f"Running in webhook mode at {WEBHOOK_URL}")
-        await self.app.bot.set_webhook(WEBHOOK_URL)
-
-        # Start the built-in webhook server (correct for PTB 20.8)
         self.app.run_webhook(
             listen="0.0.0.0",
             port=PORT,
@@ -105,7 +101,7 @@ class DiceBot:
 
     def run(self):
         if DEPLOYMENT_MODE == "webhook":
-            asyncio.run(self.run_webhook())
+            self.run_webhook()  # ✅ Correct usage (no asyncio.run)
         else:
             logger.info("Running in polling mode")
             self.app.run_polling()
