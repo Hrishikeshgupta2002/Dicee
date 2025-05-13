@@ -10,6 +10,8 @@ import logging
 import signal
 import random
 import asyncio
+import socket
+import atexit
 from typing import Optional
 from datetime import datetime
 from dotenv import load_dotenv
@@ -45,6 +47,30 @@ DEPLOYMENT_MODE = os.getenv('DEPLOYMENT_MODE', 'polling')  # Default to polling
 WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')  # For webhook mode
 PORT = int(os.getenv('PORT', 8443))  # Default port for webhook
 
+class ProcessLock:
+    """Simple process lock using a socket."""
+    
+    def __init__(self, port: int = 12345):
+        self.port = port
+        self.socket = None
+        
+    def acquire(self) -> bool:
+        """Try to acquire the lock."""
+        try:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.bind(('localhost', self.port))
+            return True
+        except socket.error:
+            return False
+            
+    def release(self) -> None:
+        """Release the lock."""
+        if self.socket:
+            try:
+                self.socket.close()
+            except:
+                pass
+
 class DiceBot:
     """Main bot class with all the functionality."""
     
@@ -53,12 +79,14 @@ class DiceBot:
         self.application = ApplicationBuilder().token(TOKEN).build()
         self._setup_handlers()
         self._setup_error_handler()
+        self.process_lock = ProcessLock()
         
     def _setup_handlers(self) -> None:
         """Set up all command handlers."""
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CommandHandler("roll", self.roll))
         self.application.add_handler(CommandHandler("help", self.help_command))
+        self.application.add_handler(CommandHandler("status", self.status))
         
     def _setup_error_handler(self) -> None:
         """Set up error handler for the application."""
@@ -71,7 +99,8 @@ class DiceBot:
             f"👋 Welcome {user.first_name}!\n\n"
             "I'm your friendly dice rolling bot. Here's what I can do:\n"
             "🎲 /roll - Roll a dice (1-6)\n"
-            "❓ /help - Show this help message"
+            "❓ /help - Show this help message\n"
+            "📊 /status - Check bot status"
         )
         await update.message.reply_text(welcome_message)
         logger.info(f"User {user.id} started the bot")
@@ -97,14 +126,40 @@ class DiceBot:
             "🎲 *Dice Roll Bot Commands*\n\n"
             "/start - Start the bot\n"
             "/roll - Roll a dice (1-6)\n"
-            "/help - Show this help message\n\n"
+            "/help - Show this help message\n"
+            "/status - Check bot status\n\n"
             "Made with ❤️ by a professional developer"
         )
         await update.message.reply_text(help_text, parse_mode='Markdown')
         
+    async def status(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle the /status command."""
+        status_text = (
+            "🤖 *Bot Status*\n\n"
+            f"Mode: {'Webhook' if DEPLOYMENT_MODE == 'webhook' else 'Polling'}\n"
+            f"Uptime: {self._get_uptime()}\n"
+            "Status: ✅ Running"
+        )
+        await update.message.reply_text(status_text, parse_mode='Markdown')
+        
+    def _get_uptime(self) -> str:
+        """Get bot uptime."""
+        uptime = datetime.now() - self.start_time
+        days = uptime.days
+        hours, remainder = divmod(uptime.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{days}d {hours}h {minutes}m {seconds}s"
+        
     async def error_handler(self, update: Optional[Update], context: CallbackContext) -> None:
         """Handle errors in the bot."""
-        logger.error(f"Update {update} caused error {context.error}")
+        error = context.error
+        logger.error(f"Update {update} caused error {error}")
+        
+        if "Conflict: terminated by other getUpdates request" in str(error):
+            logger.warning("Multiple instances detected. Attempting to recover...")
+            await self.cleanup()
+            sys.exit(1)
+            
         if update and update.effective_message:
             await update.effective_message.reply_text(
                 "😔 Sorry, something went wrong. Please try again later."
@@ -117,6 +172,7 @@ class DiceBot:
                 await self.application.bot.delete_webhook()
             await self.application.stop()
             await self.application.shutdown()
+            self.process_lock.release()
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
             
@@ -131,6 +187,17 @@ class DiceBot:
             
     def run(self) -> None:
         """Run the bot with graceful shutdown handling."""
+        # Try to acquire process lock
+        if not self.process_lock.acquire():
+            logger.error("Another instance of the bot is already running!")
+            sys.exit(1)
+            
+        # Register cleanup on exit
+        atexit.register(self.process_lock.release)
+        
+        # Store start time
+        self.start_time = datetime.now()
+        
         async def shutdown(signum, frame):
             """Handle shutdown signals gracefully."""
             logger.info("Received shutdown signal. Cleaning up...")
