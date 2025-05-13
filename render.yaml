@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: dice-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python dice_bot.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: DEPLOYMENT_MODE
+        value: webhook
+      - key: PORT
+        value: 10000
+      - key: WEBHOOK_URL
+        sync: false 

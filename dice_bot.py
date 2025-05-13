@@ -40,6 +40,11 @@ if not TOKEN:
     logger.error("No TELEGRAM_BOT_TOKEN found in environment variables!")
     sys.exit(1)
 
+# Get deployment mode from environment variable
+DEPLOYMENT_MODE = os.getenv('DEPLOYMENT_MODE', 'polling')  # Default to polling
+WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')  # For webhook mode
+PORT = int(os.getenv('PORT', 8443))  # Default port for webhook
+
 class DiceBot:
     """Main bot class with all the functionality."""
     
@@ -108,14 +113,21 @@ class DiceBot:
     async def cleanup(self) -> None:
         """Clean up before shutdown."""
         try:
-            # Remove webhook
-            await self.application.bot.delete_webhook()
-            # Stop the application
+            if DEPLOYMENT_MODE == 'webhook':
+                await self.application.bot.delete_webhook()
             await self.application.stop()
-            # Shutdown the application
             await self.application.shutdown()
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
+            
+    async def setup_webhook(self) -> None:
+        """Set up webhook for production deployment."""
+        if not WEBHOOK_URL:
+            logger.error("WEBHOOK_URL not set for webhook mode!")
+            sys.exit(1)
+            
+        await self.application.bot.set_webhook(url=WEBHOOK_URL)
+        logger.info(f"Webhook set to {WEBHOOK_URL}")
             
     def run(self) -> None:
         """Run the bot with graceful shutdown handling."""
@@ -134,9 +146,19 @@ class DiceBot:
             )
         
         try:
-            # Start the bot
-            logger.info("Starting bot...")
-            self.application.run_polling(allowed_updates=Update.ALL_TYPES)
+            if DEPLOYMENT_MODE == 'webhook':
+                # Webhook mode for production
+                logger.info(f"Starting bot in webhook mode on port {PORT}")
+                asyncio.run(self.setup_webhook())
+                self.application.run_webhook(
+                    listen='0.0.0.0',
+                    port=PORT,
+                    webhook_url=WEBHOOK_URL
+                )
+            else:
+                # Polling mode for development
+                logger.info("Starting bot in polling mode...")
+                self.application.run_polling(allowed_updates=Update.ALL_TYPES)
         except Exception as e:
             logger.critical(f"Critical error: {e}")
             asyncio.run(self.cleanup())
