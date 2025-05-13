@@ -2,7 +2,6 @@
 import os
 import sys
 import logging
-import signal
 import random
 import asyncio
 from datetime import datetime
@@ -22,7 +21,7 @@ from telegram.ext import (
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 DEPLOYMENT_MODE = os.getenv("DEPLOYMENT_MODE", "webhook")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()  # 💡 fixed here
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()  # 🛠️ fix for newline
 PORT = int(os.getenv("PORT", 10000))
 
 # Logging setup
@@ -91,25 +90,28 @@ class DiceBot:
             logger.error("WEBHOOK_URL not set!")
             sys.exit(1)
 
-        # Debug output
+        # Debug
         print(f"DEBUG: WEBHOOK_URL = '{WEBHOOK_URL}'")
         print(f"DEBUG length = {len(WEBHOOK_URL)}")
 
         logger.info(f"Running in webhook mode at {WEBHOOK_URL}")
         await self.app.bot.set_webhook(WEBHOOK_URL)
 
-        # Add simple root route to support HTTP checks
+        # Create aiohttp app from PTB
+        aiohttp_app = self.app.create_app()
+
+        # Add health check route
         async def handle_root(request):
             return web.Response(text="✅ Dice Bot is running")
 
-        # Start aiohttp web server
-        runner = web.AppRunner(self.app.web_app)
+        aiohttp_app.router.add_get("/", handle_root)
+
+        # Start web server
+        runner = web.AppRunner(aiohttp_app)
         await runner.setup()
         site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
-        self.app.web_app.router.add_get("/", handle_root)
         await site.start()
 
-        # Keep alive
         while True:
             await asyncio.sleep(3600)
 
