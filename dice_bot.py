@@ -44,6 +44,7 @@ class DiceBot:
         self.app.add_handler(CommandHandler("toss", self.toss))
         self.app.add_handler(CommandHandler("help", self.help))
         self.app.add_handler(CommandHandler("status", self.status))
+        self.app.add_handler(CommandHandler("getid", self.get_chat_id))  # ✅ New handler
         self.app.add_error_handler(self.error_handler)
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -70,7 +71,8 @@ class DiceBot:
             "/roll - Roll a dice\n"
             "/toss - Toss a coin\n"
             "/help - Show help\n"
-            "/status - Show bot status"
+            "/status - Show bot status\n"
+            "/getid - Show chat ID (admins only in groups)"
         )
 
     async def status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -84,6 +86,35 @@ class DiceBot:
             f"Uptime: {int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s"
         )
 
+    async def get_chat_id(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat = update.effective_chat
+        user = update.effective_user
+
+        # If private chat: always allow
+        if chat.type == "private":
+            await update.message.reply_text(f"🆔 Your private chat ID is `{chat.id}`", parse_mode="Markdown")
+            return
+
+        # In group/supergroup: check if user is admin
+        try:
+            member = await context.bot.get_chat_member(chat.id, user.id)
+            if member.status not in ("administrator", "creator"):
+                await update.message.reply_text("❌ Only group admins can use this command.")
+                return
+        except Exception as e:
+            logger.error(f"Failed to fetch chat member: {e}")
+            await update.message.reply_text("⚠️ Could not verify admin rights.")
+            return
+
+        # If admin, return chat info
+        chat_title = chat.title or "Unnamed Group"
+        await update.message.reply_text(
+            f"🆔 *Chat ID*: `{chat.id}`\n"
+            f"💬 *Chat Type*: `{chat.type}`\n"
+            f"🏷️ *Chat Title*: `{chat_title}`",
+            parse_mode="Markdown"
+        )
+
     async def error_handler(self, update: Optional[Update], context: CallbackContext):
         logger.error(f"Error: {context.error}")
         if update and update.effective_message:
@@ -94,7 +125,6 @@ class DiceBot:
             logger.error("WEBHOOK_URL not set!")
             sys.exit(1)
 
-        # Debug
         print(f"DEBUG: WEBHOOK_URL = '{WEBHOOK_URL}'")
         print(f"DEBUG length = {len(WEBHOOK_URL)}")
 
