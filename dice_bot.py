@@ -57,11 +57,11 @@ class DiceBot:
 
     async def roll(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         number = random.randint(1, 6)
-        await update.message.reply_text(f"You rolled a {number}!")
+        await update.message.reply_text(str(number))
 
     async def toss(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = random.choice(["Heads", "Tails"])
-        await update.message.reply_text(f"🪙 You got: {result}")
+        await update.message.reply_text(result)
 
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
