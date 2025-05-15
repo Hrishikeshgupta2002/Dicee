@@ -70,12 +70,15 @@ class DiceBot:
     async def show_cards(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._is_allowed(update, context, "show"):
             return
+
         suits = ["♠", "♥", "♦", "♣"]
         values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
         deck = [f"{v}{s}" for v in values for s in suits]
         random.shuffle(deck)
         hand = random.sample(deck, 3)
-        await update.message.reply_text(" | ".join(hand))
+
+        for card in hand:
+            await update.message.reply_text(card)
 
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
@@ -139,7 +142,7 @@ class DiceBot:
     async def error_handler(self, update: Optional[Update], context: CallbackContext):
         logger.error(f"Error: {context.error}")
         if update and update.effective_message:
-            await update.effective_message.reply_text("Something went wrong.")
+            await update.message.reply_text("Something went wrong.")
 
     def run_webhook(self):
         if not WEBHOOK_URL:
