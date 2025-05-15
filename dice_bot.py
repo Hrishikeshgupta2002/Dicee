@@ -41,6 +41,7 @@ class DiceBot:
     def _setup_handlers(self):
         self.app.add_handler(CommandHandler("start", self.start))
         self.app.add_handler(CommandHandler("roll", self.roll))
+        self.app.add_handler(CommandHandler("toss", self.toss))
         self.app.add_handler(CommandHandler("help", self.help))
         self.app.add_handler(CommandHandler("status", self.status))
         self.app.add_error_handler(self.error_handler)
@@ -49,20 +50,25 @@ class DiceBot:
         await update.message.reply_text(
             "🎲 Welcome to Dice Roll Bot!\n\n"
             "Use /roll to roll a dice.\n"
+            "Use /toss to toss a coin.\n"
             "Use /help for help.\n"
             "Use /status to check bot status."
         )
 
     async def roll(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         number = random.randint(1, 6)
-        dice_emojis = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
-        await update.message.reply_text(f"You rolled a {number} {dice_emojis[number]}!")
+        await update.message.reply_text(f"You rolled a {number}!")
+
+    async def toss(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        result = random.choice(["Heads", "Tails"])
+        await update.message.reply_text(f"🪙 You got: {result}")
 
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "🆘 Commands:\n"
             "/start - Start the bot\n"
             "/roll - Roll a dice\n"
+            "/toss - Toss a coin\n"
             "/help - Show help\n"
             "/status - Show bot status"
         )
@@ -101,7 +107,7 @@ class DiceBot:
 
     def run(self):
         if DEPLOYMENT_MODE == "webhook":
-            self.run_webhook()  # ✅ Correct usage (no asyncio.run)
+            self.run_webhook()
         else:
             logger.info("Running in polling mode")
             self.app.run_polling()
