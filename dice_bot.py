@@ -42,7 +42,8 @@ class DiceBot:
         self.app.add_handler(CommandHandler("start", self.start))
         self.app.add_handler(CommandHandler("roll", self.roll))
         self.app.add_handler(CommandHandler("toss", self.toss))
-        self.app.add_handler(CommandHandler("show", self.show_cards))
+        self.app.add_handler(CommandHandler("show1", self.show1))
+        self.app.add_handler(CommandHandler("show2", self.show2))
         self.app.add_handler(CommandHandler("help", self.help))
         self.app.add_handler(CommandHandler("status", self.status))
         self.app.add_handler(CommandHandler("getid", self.get_chat_id))
@@ -51,7 +52,7 @@ class DiceBot:
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "Welcome to Dice Roll Bot!\n"
-            "Use /roll, /toss, or /show (admins only in groups).\n"
+            "Use /roll, /toss, /show1, or /show2 (admins only in groups).\n"
             "Use /help for all commands."
         )
 
@@ -67,16 +68,22 @@ class DiceBot:
         result = random.choice(["Heads", "Tails"])
         await update.message.reply_text(result)
 
-    async def show_cards(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._is_allowed(update, context, "show"):
+    async def show1(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._is_allowed(update, context, "show1"):
             return
+        await self._deal_cards(update)
 
+    async def show2(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._is_allowed(update, context, "show2"):
+            return
+        await self._deal_cards(update)
+
+    async def _deal_cards(self, update: Update):
         suits = ["♠", "♥", "♦", "♣"]
         values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
         deck = [f"{v}{s}" for v in values for s in suits]
         random.shuffle(deck)
         hand = random.sample(deck, 3)
-
         for card in hand:
             await update.message.reply_text(card)
 
@@ -85,7 +92,8 @@ class DiceBot:
             "/start - Start the bot\n"
             "/roll - Roll a dice (admin-only in groups)\n"
             "/toss - Toss a coin (admin-only in groups)\n"
-            "/show - Show 3 cards (admin-only in groups)\n"
+            "/show1 - Show 3 cards for player 1 (admin-only in groups)\n"
+            "/show2 - Show 3 cards for player 2 (admin-only in groups)\n"
             "/status - Bot uptime and mode\n"
             "/getid - Show chat ID (admin-only in groups)"
         )
