@@ -57,22 +57,50 @@ class DiceBot:
         )
 
     async def roll(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat = update.effective_chat
+        user = update.effective_user
+
+        if chat.type in ("group", "supergroup"):
+            try:
+                member = await context.bot.get_chat_member(chat.id, user.id)
+                if member.status not in ("administrator", "creator"):
+                    await update.message.reply_text("❌ Only group admins can use /roll.")
+                    return
+            except Exception as e:
+                logger.error(f"Admin check failed in /roll: {e}")
+                await update.message.reply_text("⚠️ Could not verify admin rights.")
+                return
+
         number = random.randint(1, 6)
-        await update.message.reply_text(str(number))
+        await update.message.reply_text(f"🎲 You rolled a {number}!")
 
     async def toss(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat = update.effective_chat
+        user = update.effective_user
+
+        if chat.type in ("group", "supergroup"):
+            try:
+                member = await context.bot.get_chat_member(chat.id, user.id)
+                if member.status not in ("administrator", "creator"):
+                    await update.message.reply_text("❌ Only group admins can use /toss.")
+                    return
+            except Exception as e:
+                logger.error(f"Admin check failed in /toss: {e}")
+                await update.message.reply_text("⚠️ Could not verify admin rights.")
+                return
+
         result = random.choice(["Heads", "Tails"])
-        await update.message.reply_text(result)
+        await update.message.reply_text(f"🪙 It's {result}!")
 
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "🆘 Commands:\n"
             "/start - Start the bot\n"
-            "/roll - Roll a dice\n"
-            "/toss - Toss a coin\n"
+            "/roll - Roll a dice (admin-only in groups)\n"
+            "/toss - Toss a coin (admin-only in groups)\n"
             "/help - Show help\n"
             "/status - Show bot status\n"
-            "/getid - Show chat ID (admins only in groups)"
+            "/getid - Show chat ID (admin-only in groups)"
         )
 
     async def status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -99,14 +127,13 @@ class DiceBot:
         try:
             member = await context.bot.get_chat_member(chat.id, user.id)
             if member.status not in ("administrator", "creator"):
-                await update.message.reply_text("❌ Only group admins can use this command.")
+                await update.message.reply_text("❌ Only group admins can use /getid.")
                 return
         except Exception as e:
-            logger.error(f"Failed to fetch chat member: {e}")
+            logger.error(f"Failed to fetch chat member in /getid: {e}")
             await update.message.reply_text("⚠️ Could not verify admin rights.")
             return
 
-        # If admin, return chat info
         chat_title = chat.title or "Unnamed Group"
         await update.message.reply_text(
             f"🆔 *Chat ID*: `{chat.id}`\n"
