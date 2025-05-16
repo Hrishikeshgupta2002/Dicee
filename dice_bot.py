@@ -92,8 +92,8 @@ class DiceBot:
             "/start - Start the bot\n"
             "/roll - Roll a dice (admin-only in groups)\n"
             "/toss - Toss a coin (admin-only in groups)\n"
-            "/show1 - Show 3 cards for player 1 (admin-only in groups)\n"
-            "/show2 - Show 3 cards for player 2 (admin-only in groups)\n"
+            "/show 1 - Show 3 cards for player 1 (admin-only in groups)\n" 
+            "/show 2 - Show 3 cards for player 2 (admin-only in groups)\n" 
             "/status - Bot uptime and mode\n"
             "/getid - Show chat ID (admin-only in groups)"
         )
