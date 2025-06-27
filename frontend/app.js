@@ -197,19 +197,64 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <h4>Configuration:</h4>
             <div id="agentConfigFields">
-                ${Object.entries(agent.config || {}).map(([key, value]) => `
-                    <div>
-                        <label for="config-${key}">${key}:</label>
-                        <textarea id="config-${key}" data-key="${key}" rows="2">${value}</textarea>
-                    </div>
-                `).join('')}
-                 ${agent.type === 'input' && !agent.config.message ? '<div><label for="config-message">message:</label><textarea id="config-message" data-key="message" rows="2"></textarea></div>' : ''}
-                 ${agent.type === 'processing' && !agent.config.prepend ? '<div><label for="config-prepend">prepend:</label><textarea id="config-prepend" data-key="prepend" rows="2"></textarea></div>' : ''}
-                 ${agent.type === 'processing' && !agent.config.append ? '<div><label for="config-append">append:</label><textarea id="config-append" data-key="append" rows="2"></textarea></div>' : ''}
+                <!-- Specific fields will be injected here by JS -->
             </div>
             <button id="saveAgentButton">Save Changes</button>
             <button id="deleteAgentButton" style="background-color: #e74c3c;">Delete Agent</button>
         `;
+
+        const configFieldsContainer = document.getElementById('agentConfigFields');
+        configFieldsContainer.innerHTML = ''; // Clear previous fields
+
+        // Dynamically add config fields based on agent type
+        const config = agent.config || {};
+
+        if (agent.type === 'InputNode') {
+            // For InputNode, the 'value' can be complex (a dict). For simplicity, edit as JSON.
+            configFieldsContainer.innerHTML += `
+                <div>
+                    <label for="config-value">Value (JSON format):</label>
+                    <textarea id="config-value" data-key="value" rows="3">${JSON.stringify(config.value || {"text": "default"}, null, 2)}</textarea>
+                </div>`;
+        } else if (agent.type === 'PromptTemplateNode') {
+            configFieldsContainer.innerHTML += `
+                <div>
+                    <label for="config-template_string">Template String:</label>
+                    <textarea id="config-template_string" data-key="template_string" rows="5">${config.template_string || ''}</textarea>
+                </div>`;
+        } else if (agent.type === 'GeminiLLMNode') {
+            configFieldsContainer.innerHTML += `
+                <div>
+                    <label for="config-model_name">Model Name:</label>
+                    <input type="text" id="config-model_name" data-key="model_name" value="${config.model_name || 'gemini-pro'}">
+                </div>
+                <div>
+                    <label for="config-temperature">Temperature:</label>
+                    <input type="number" step="0.1" id="config-temperature" data-key="temperature" value="${config.temperature || 0.7}">
+                </div>
+                <p style="font-size:0.8em; color: #555;">Note: GOOGLE_API_KEY must be set as an environment variable on the backend server.</p>
+            `;
+        } else if (agent.type === 'ProcessingNode') { // Legacy
+             configFieldsContainer.innerHTML += `
+                <div>
+                    <label for="config-prepend">Prepend:</label>
+                    <input type="text" id="config-prepend" data-key="prepend" value="${config.prepend || ''}">
+                </div>
+                <div>
+                    <label for="config-append">Append:</label>
+                    <input type="text" id="config-append" data-key="append" value="${config.append || ''}">
+                </div>`;
+        } else {
+            // Generic fallback for other types or if config is simple key-value strings
+            Object.entries(config).forEach(([key, value]) => {
+                configFieldsContainer.innerHTML += `
+                    <div>
+                        <label for="config-${key}">${key}:</label>
+                        <textarea id="config-${key}" data-key="${key}" rows="2">${typeof value === 'object' ? JSON.stringify(value, null, 2) : value}</textarea>
+                    </div>`;
+            });
+        }
+
 
         document.getElementById('saveAgentButton').addEventListener('click', saveAgentProperties);
         document.getElementById('deleteAgentButton').addEventListener('click', deleteSelectedAgent);
@@ -217,7 +262,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function clearPropertiesPanel() {
         propertiesPanel.innerHTML = '<p>Select an agent to see its properties.</p>';
-        selectedAgentId = null;
+        selectedAgentId = null; // Ensure this is reset
+        // Remove 'selected' class from any agent node
         document.querySelectorAll('.agent-node.selected').forEach(n => n.classList.remove('selected'));
     }
 
@@ -309,13 +355,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function selectAgent(agentId) {
         if (selectedAgentId === agentId) return; // Already selected
 
+        // Deselect previous
         if (selectedAgentId && agents[selectedAgentId]) {
             document.getElementById(`agent-${selectedAgentId}`)?.classList.remove('selected');
         }
+
         selectedAgentId = agentId;
-        const agentNode = document.getElementById(`agent-${agentId}`);
-        agentNode?.classList.add('selected');
-        renderPropertiesPanel(agents[agentId]);
+        const selectedAgentData = agents[agentId];
+
+        if (selectedAgentData) {
+            const agentNode = document.getElementById(`agent-${agentId}`);
+            agentNode?.classList.add('selected');
+            renderPropertiesPanel(selectedAgentData);
+        } else {
+            // Agent not found, clear panel
+            clearPropertiesPanel();
+        }
     }
 
     // Canvas click to deselect
@@ -343,9 +398,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const agent = agents[selectedAgentId];
         const newName = document.getElementById('agentName').value;
 
-        const updatedConfig = {};
-        document.querySelectorAll('#agentConfigFields textarea').forEach(textarea => {
-            updatedConfig[textarea.dataset.key] = textarea.value;
+        const updatedConfig = { ...agent.config }; // Start with existing config to preserve any uneditable fields
+
+        document.querySelectorAll('#agentConfigFields input, #agentConfigFields textarea').forEach(inputElem => {
+            const key = inputElem.dataset.key;
+            if (key) {
+                if (agent.type === 'InputNode' && key === 'value') {
+                    try {
+                        updatedConfig[key] = JSON.parse(inputElem.value);
+                    } catch (e) {
+                        console.error("Invalid JSON for InputNode value:", e);
+                        alert("Error: The 'Value' for InputNode must be valid JSON.");
+                        // Potentially throw error or prevent save if strict parsing is required
+                        updatedConfig[key] = agent.config.value; // Revert to old value on parse error
+                    }
+                } else if (inputElem.type === 'number') {
+                    updatedConfig[key] = parseFloat(inputElem.value);
+                }
+                else {
+                    updatedConfig[key] = inputElem.value;
+                }
+            }
         });
 
         const updatedAgent = { ...agent, name: newName, config: updatedConfig };
