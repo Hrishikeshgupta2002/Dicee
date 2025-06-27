@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Langflow MVP</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <h2>Agent Types</h2>
+            <div class="agent-type" draggable="true" data-type="input">Input Node</div>
+            <div class="agent-type" draggable="true" data-type="processing">Processing Node</div>
+            <div class="agent-type" draggable="true" data-type="output">Output Node</div>
+            <!-- Add more agent types here -->
+        </div>
+
+        <div class="main-content">
+            <div class="controls">
+                <button id="runFlowButton">Run Flow</button>
+            </div>
+            <div id="canvas" class="canvas">
+                <!-- Agents will be rendered here -->
+            </div>
+        </div>
+
+        <div class="properties-panel-container">
+            <h2>Properties</h2>
+            <div id="propertiesPanel">
+                <p>Select an agent to see its properties.</p>
+                <!-- Agent configuration form will be injected here -->
+            </div>
+            <div id="flowOutputPanel">
+                <h3>Flow Output:</h3>
+                <pre id="flowOutputContent"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <!-- Consider adding a drag-and-drop library later if native API becomes too complex -->
+    <!-- e.g., <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script> -->
+</body>
+</html>
